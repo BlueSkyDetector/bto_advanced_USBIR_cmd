@@ -123,8 +123,8 @@ static char PLAOPTIONlist[OPTION_NUM-2][20] =
     "Plarail_Speed_DownB"
 };
 
-void close_device(libusb_context *ctx, libusb_device_handle *devh);
-libusb_device_handle* open_device(libusb_context *ctx);
+void close_device(libusb_context *ctx, libusb_device_handle *devh, libusb_device ***devsp);
+libusb_device_handle* open_device(libusb_context *ctx, libusb_device ***devsp);
 void setup_optargs(struct option options[]);
 void usage(char *fname);
 void version(char *fname);
@@ -139,15 +139,15 @@ int recUSBIRData_Start(struct libusb_device_handle *devh, uint freq);
 int recUSBIRData_Stop(struct libusb_device_handle *devh);
 int readUSBIRData(struct libusb_device_handle *devh, byte data[], uint data_buff_len, uint *bit_len);
 
-void close_device(libusb_context *ctx, libusb_device_handle *devh) {
+void close_device(libusb_context *ctx, libusb_device_handle *devh, libusb_device ***devsp) {
   libusb_close(devh);
+  libusb_free_device_list(*devsp, 1);
   libusb_exit(ctx);
 }
 
-libusb_device_handle* open_device(libusb_context *ctx) {
+libusb_device_handle* open_device(libusb_context *ctx, libusb_device ***devsp) {
   struct libusb_device_handle *devh = NULL;
   libusb_device *dev;
-  libusb_device **devs;
 
   int r = 1;
   int i = 0;
@@ -155,13 +155,13 @@ libusb_device_handle* open_device(libusb_context *ctx) {
 
   libusb_set_debug(ctx, 3);
   
-  if ((libusb_get_device_list(ctx, &devs)) < 0) {
+  if ((libusb_get_device_list(ctx, devsp)) < 0) {
     perror("no usb device found");
     exit(1);
   }
 
   /* check every usb devices */
-  while ((dev = devs[i++]) != NULL) {
+  while ((dev = (*devsp)[i++]) != NULL) {
     struct libusb_device_descriptor desc;
     if (libusb_get_device_descriptor(dev, &desc) < 0) {
       perror("failed to get device descriptor\n");
@@ -187,7 +187,7 @@ libusb_device_handle* open_device(libusb_context *ctx) {
   /* open device */
   if ((devh = libusb_open_device_with_vid_pid(ctx, VENDOR_ID, PRODUCT_ID)) < 0) {
     perror("can't find device\n");
-    close_device(ctx, devh);
+    close_device(ctx, devh, devsp);
     exit(1);
   } 
 
@@ -310,6 +310,7 @@ int main(int argc, char *argv[]) {
   int placounter = 0, plaindex;
   int fi, typeindex = -1;
   uint ibit_len = 0;
+  libusb_device **devs;
 
   options = malloc(sizeof(struct option) * OPTION_NUM);
   setup_optargs(options);
@@ -502,7 +503,7 @@ if (ret < 0)
 }
 
 /* open device */
-libusb_device_handle *devh = open_device(ctx);
+libusb_device_handle *devh = open_device(ctx, &devs);
 
 if (data_flag)
 {
@@ -588,7 +589,7 @@ else if(pla_flag)
 }
 
 /* close device */
-close_device(ctx, devh);
+close_device(ctx, devh , &devs);
 return ret;
 }
 
