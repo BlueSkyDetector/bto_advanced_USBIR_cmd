@@ -153,7 +153,7 @@ libusb_device_handle* open_device(libusb_context *ctx, libusb_device ***devsp) {
   int i = 0;
   int cnt = 0;
 
-  libusb_set_debug(ctx, 3);
+  libusb_set_option(ctx, LIBUSB_OPTION_LOG_LEVEL, 3);
   
   if ((libusb_get_device_list(ctx, devsp)) < 0) {
     perror("no usb device found");
